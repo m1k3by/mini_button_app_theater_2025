@@ -6,17 +6,21 @@
 }
 
 :root {
-    --primary: #2563eb;
-    --primary-hover: #1d4ed8;
-    --secondary: #64748b;
-    --danger: #dc2626;
-    --danger-hover: #b91c1c;
-    --success: #16a34a;
-    --bg: #0f172a;
-    --surface: #1e293b;
-    --text: #f1f5f9;
-    --text-muted: #94a3b8;
-    --border: #334155;
+    --primary: #4a4a4a;
+    --primary-hover: #333;
+    --secondary: #666;
+    --danger: #8b0000;
+    --danger-hover: #660000;
+    --success: #2d5016;
+    --bg: #7c3aed;
+    --surface: #f0f0f0;
+    --text: #000;
+    --text-muted: #666;
+    --border: #808080;
+    --btn-face: #c0c0c0;
+    --btn-shadow: #808080;
+    --btn-highlight: #ffffff;
+    --btn-color: #fbbf24;
 }
 
 body {
@@ -39,33 +43,28 @@ body {
 
 header {
     display: flex;
-    justify-content: space-between;
+    justify-content: flex-end;
     align-items: center;
-    margin-bottom: 2rem;
-    padding-bottom: 1rem;
-    border-bottom: 2px solid var(--border);
-}
-
-h1 {
-    font-size: 1.5rem;
-    font-weight: 700;
+    margin-bottom: 1.5rem;
 }
 
 .settings-btn {
-    background: var(--surface);
-    border: 2px solid var(--border);
-    color: var(--text);
-    font-size: 1.5rem;
-    width: 50px;
-    height: 50px;
-    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.95);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 0;
+    color: #7c3aed;
+    font-size: 1.4rem;
+    width: 48px;
+    height: 48px;
     cursor: pointer;
+    font-family: 'Arial', sans-serif;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
     transition: all 0.2s;
 }
 
 .settings-btn:active {
     transform: scale(0.95);
-    background: var(--border);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
 }
 
 .buttons-grid {
@@ -77,76 +76,67 @@ h1 {
 }
 
 .sound-btn {
-    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-hover) 100%);
+    background: linear-gradient(145deg, #fcd34d, #f59e0b);
     border: none;
-    border-radius: 16px;
-    color: var(--text);
-    font-size: 1rem;
-    font-weight: 600;
-    padding: 2rem 1rem;
+    border-radius: 0;
+    color: #1f2937;
+    font-size: 1.5rem;
+    font-weight: 900;
+    padding: 2.5rem 1rem;
     cursor: pointer;
-    transition: all 0.2s;
     display: flex;
     flex-direction: column;
     align-items: center;
+    justify-content: center;
     gap: 0.5rem;
-    min-height: 150px;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    min-height: 160px;
+    font-family: 'Arial Black', 'Arial', sans-serif;
+    box-shadow: 0 8px 16px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.5);
+    text-shadow: 0 1px 2px rgba(255,255,255,0.5);
+    transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+.sound-btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(180deg, rgba(255,255,255,0.3) 0%, transparent 50%);
+    border-radius: 0;
+    pointer-events: none;
 }
 
 .sound-btn:active {
-    transform: scale(0.95);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+    transform: translateY(2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.3), inset 0 2px 4px rgba(0,0,0,0.2);
 }
 
 .sound-btn.playing {
-    background: linear-gradient(135deg, var(--success) 0%, #15803d 100%);
-    animation: pulse 1.5s infinite;
+    background: linear-gradient(145deg, #34d399, #10b981);
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4), inset 0 2px 4px rgba(0,0,0,0.2);
+    animation: pulse-glow 1.5s ease-in-out infinite;
 }
 
-@keyframes pulse {
+@keyframes pulse-glow {
     0%, 100% {
-        opacity: 1;
+        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4), inset 0 2px 4px rgba(0,0,0,0.2);
     }
     50% {
-        opacity: 0.8;
+        box-shadow: 0 6px 20px rgba(16, 185, 129, 0.6), inset 0 2px 4px rgba(0,0,0,0.2);
     }
-}
-
-.btn-number {
-    font-size: 2.5rem;
-    font-weight: 700;
-    line-height: 1;
 }
 
 .btn-label {
-    font-size: 0.875rem;
-    opacity: 0.9;
+    font-size: 1.5rem;
     text-align: center;
+    letter-spacing: 0.5px;
 }
 
-.controls {
-    display: flex;
-    gap: 1rem;
-}
 
-.control-btn {
-    flex: 1;
-    background: var(--danger);
-    border: none;
-    border-radius: 12px;
-    color: var(--text);
-    font-size: 1.1rem;
-    font-weight: 600;
-    padding: 1rem;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.control-btn:active {
-    transform: scale(0.95);
-    background: var(--danger-hover);
-}
 
 /* Modal */
 .modal {
@@ -156,7 +146,7 @@ h1 {
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0, 0, 0, 0.8);
+    background: rgba(0, 0, 0, 0.5);
     z-index: 1000;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
@@ -171,46 +161,49 @@ h1 {
 
 .modal-content {
     background: var(--surface);
-    border-radius: 16px;
+    border: 3px solid;
+    border-color: var(--btn-highlight) var(--btn-shadow) var(--btn-shadow) var(--btn-highlight);
     width: 100%;
     max-width: 500px;
     margin: 2rem 0;
-    box-shadow: 0 20px 25px rgba(0, 0, 0, 0.5);
+    box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.3);
 }
 
 .modal-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 1.5rem;
+    padding: 0.5rem;
+    background: linear-gradient(90deg, #000080, #1084d0);
+    color: white;
     border-bottom: 2px solid var(--border);
 }
 
 .modal-header h2 {
-    font-size: 1.25rem;
+    font-size: 0.9rem;
     font-weight: 700;
+    font-family: 'MS Sans Serif', Arial, sans-serif;
 }
 
 .close-btn {
-    background: transparent;
-    border: none;
-    color: var(--text-muted);
-    font-size: 1.5rem;
+    background: var(--btn-face);
+    border: 2px solid;
+    border-color: var(--btn-highlight) var(--btn-shadow) var(--btn-shadow) var(--btn-highlight);
+    color: #000;
+    font-size: 0.8rem;
     cursor: pointer;
     padding: 0;
-    width: 32px;
-    height: 32px;
+    width: 20px;
+    height: 20px;
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 8px;
-    transition: all 0.2s;
+    font-family: 'MS Sans Serif', Arial, sans-serif;
+    font-weight: 700;
 }
 
-.close-btn:hover,
 .close-btn:active {
-    background: var(--border);
-    color: var(--text);
+    border-color: var(--btn-shadow) var(--btn-highlight) var(--btn-highlight) var(--btn-shadow);
 }
 
 .modal-body {
@@ -240,39 +233,77 @@ h1 {
     margin-top: 0;
 }
 
-.setting-group input {
+.setting-group input[type="text"],
+.setting-group input[type="url"] {
     width: 100%;
-    background: var(--bg);
-    border: 2px solid var(--border);
-    border-radius: 8px;
+    background: white;
+    border: 2px solid;
+    border-color: var(--btn-shadow) var(--btn-highlight) var(--btn-highlight) var(--btn-shadow);
     color: var(--text);
-    padding: 0.75rem;
-    font-size: 1rem;
-    transition: all 0.2s;
+    padding: 0.5rem;
+    font-size: 0.9rem;
+    font-family: 'MS Sans Serif', Arial, sans-serif;
 }
 
-.setting-group input:focus {
-    outline: none;
-    border-color: var(--primary);
+.setting-group input[type="text"]:focus,
+.setting-group input[type="url"]:focus {
+    outline: 1px dotted #000;
+    outline-offset: -3px;
+}
+
+.setting-group input[type="range"] {
+    width: 100%;
+    height: 20px;
+    background: var(--btn-face);
+    border: 2px solid;
+    border-color: var(--btn-shadow) var(--btn-highlight) var(--btn-highlight) var(--btn-shadow);
+    -webkit-appearance: none;
+    appearance: none;
+}
+
+.setting-group input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 12px;
+    height: 16px;
+    background: var(--btn-face);
+    border: 2px solid;
+    border-color: var(--btn-highlight) var(--btn-shadow) var(--btn-shadow) var(--btn-highlight);
+    cursor: pointer;
+}
+
+.setting-group input[type="range"]::-moz-range-thumb {
+    width: 12px;
+    height: 16px;
+    background: var(--btn-face);
+    border: 2px solid;
+    border-color: var(--btn-highlight) var(--btn-shadow) var(--btn-shadow) var(--btn-highlight);
+    cursor: pointer;
+}
+
+.setting-group label span {
+    float: right;
+    font-weight: 700;
+    color: #000080;
 }
 
 .save-btn {
     width: 100%;
-    background: var(--success);
-    border: none;
-    border-radius: 12px;
+    background: var(--btn-face);
+    border: 3px solid;
+    border-color: var(--btn-highlight) var(--btn-shadow) var(--btn-shadow) var(--btn-highlight);
     color: var(--text);
-    font-size: 1.1rem;
-    font-weight: 600;
-    padding: 1rem;
+    font-size: 0.9rem;
+    font-weight: 700;
+    padding: 0.75rem;
     cursor: pointer;
-    transition: all 0.2s;
     margin-top: 1rem;
+    font-family: 'MS Sans Serif', Arial, sans-serif;
 }
 
 .save-btn:active {
-    transform: scale(0.98);
-    background: #15803d;
+    border-color: var(--btn-shadow) var(--btn-highlight) var(--btn-highlight) var(--btn-shadow);
+    padding: calc(0.75rem + 1px) 0.75rem calc(0.75rem - 1px) 0.75rem;
 }
 
 /* Responsive */

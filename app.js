@@ -10,7 +10,7 @@ const defaultConfig = {
         { name: 'Theatergong', url: 'Theatergong.mp3', startTime: 0 },
         { name: 'Klingelton', url: 'Klingelton.mp3', startTime: 0 },
         { name: 'Magic Mike', url: 'magic_mike.mp3', startTime: 0 },
-        { name: 'Sexbomp', url: 'sexbomp.mp3', startTime: 0 }
+        { name: 'Sexbomb', url: 'sexbomb.mp3', startTime: 0 }
     ]
 };
 
@@ -49,16 +49,28 @@ function updateButtonLabels() {
     });
 }
 
-// Play sound
+// Play/Stop sound (Toggle)
 function playSound(index) {
     const sound = config.sounds[index];
+    const buttons = document.querySelectorAll('.sound-btn');
+    const button = buttons[index];
+    
+    // If this button is already playing, stop it
+    if (button.classList.contains('playing')) {
+        if (currentAudio) {
+            currentAudio.pause();
+            currentAudio = null;
+        }
+        removePlayingState();
+        return;
+    }
     
     if (!sound.url) {
         alert('Bitte zuerst eine Sound-URL in den Einstellungen konfigurieren!');
         return;
     }
 
-    // Stop current audio if playing
+    // Stop any currently playing audio
     if (currentAudio) {
         currentAudio.pause();
         currentAudio = null;
@@ -67,11 +79,10 @@ function playSound(index) {
 
     // Create new audio element
     currentAudio = new Audio(sound.url);
-    currentAudio.currentTime = sound.startTime || 0;
+    const startTime = sound.startTime || 0;
     
     // Add playing state to button
-    const buttons = document.querySelectorAll('.sound-btn');
-    buttons[index].classList.add('playing');
+    button.classList.add('playing');
 
     // Remove playing state when audio ends
     currentAudio.addEventListener('ended', () => {
@@ -79,10 +90,29 @@ function playSound(index) {
         currentAudio = null;
     });
 
-    // Play audio
+    // Handle errors
+    currentAudio.addEventListener('error', (e) => {
+        console.error('Audio error:', e);
+        alert('Fehler beim Laden des Sounds!');
+        removePlayingState();
+        currentAudio = null;
+    });
+
+    // Play and seek when ready
+    currentAudio.addEventListener('loadedmetadata', () => {
+        try {
+            if (startTime > 0 && startTime < currentAudio.duration) {
+                currentAudio.currentTime = startTime;
+            }
+        } catch (e) {
+            console.log('Could not seek:', e);
+        }
+    }, { once: true });
+
+    // Start playing
     currentAudio.play().catch(error => {
-        console.error('Error playing audio:', error);
-        alert('Fehler beim Abspielen des Sounds. Bitte URL überprüfen!');
+        console.error('Play error:', error);
+        alert('Fehler beim Abspielen: ' + error.message);
         removePlayingState();
         currentAudio = null;
     });
@@ -105,6 +135,21 @@ function removePlayingState() {
     });
 }
 
+// Format seconds to MM:SS
+function formatTime(seconds) {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
+
+// Update time display for slider
+function updateTimeDisplay(index, value) {
+    const display = document.getElementById(`sound${index + 1}-time`);
+    if (display) {
+        display.textContent = formatTime(value);
+    }
+}
+
 // Open settings modal
 function openSettings() {
     const modal = document.getElementById('settingsModal');
@@ -114,6 +159,7 @@ function openSettings() {
         document.getElementById(`sound${index + 1}-name`).value = sound.name || '';
         document.getElementById(`sound${index + 1}-url`).value = sound.url || '';
         document.getElementById(`sound${index + 1}-start`).value = sound.startTime || 0;
+        updateTimeDisplay(index, sound.startTime || 0);
     });
     
     modal.classList.add('active');
@@ -143,11 +189,9 @@ function saveSettings() {
         const saveBtn = document.getElementById('saveBtn');
         const originalText = saveBtn.textContent;
         saveBtn.textContent = '✓ Gespeichert!';
-        saveBtn.style.background = '#15803d';
         
         setTimeout(() => {
             saveBtn.textContent = originalText;
-            saveBtn.style.background = '';
         }, 1500);
     } else {
         alert('Fehler beim Speichern der Einstellungen!');
@@ -164,9 +208,6 @@ document.addEventListener('DOMContentLoaded', () => {
         btn.addEventListener('click', () => playSound(index));
     });
 
-    // Stop button
-    document.getElementById('stopBtn').addEventListener('click', stopSound);
-
     // Settings button
     document.getElementById('settingsBtn').addEventListener('click', openSettings);
 
@@ -175,6 +216,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Save button
     document.getElementById('saveBtn').addEventListener('click', saveSettings);
+
+    // Time sliders - update display in real-time
+    for (let i = 1; i <= 4; i++) {
+        const slider = document.getElementById(`sound${i}-start`);
+        slider.addEventListener('input', (e) => {
+            updateTimeDisplay(i - 1, parseFloat(e.target.value));
+        });
+    }
 
     // Close modal when clicking outside
     document.getElementById('settingsModal').addEventListener('click', (e) => {
