@@ -101,13 +101,31 @@ function playSound(index) {
     // Play and seek when ready
     currentAudio.addEventListener('loadedmetadata', () => {
         try {
+            console.log(`Audio duration: ${currentAudio.duration}, Start time: ${startTime}`);
             if (startTime > 0 && startTime < currentAudio.duration) {
                 currentAudio.currentTime = startTime;
+                console.log(`Seeked to ${startTime}s`);
+            } else if (startTime >= currentAudio.duration) {
+                console.warn(`Start time ${startTime}s exceeds duration ${currentAudio.duration}s`);
             }
         } catch (e) {
-            console.log('Could not seek:', e);
+            console.error('Could not seek:', e);
         }
     }, { once: true });
+
+    // Fallback: try to seek after a short delay if metadata doesn't load
+    setTimeout(() => {
+        if (currentAudio && !currentAudio.paused) {
+            try {
+                if (startTime > 0 && currentAudio.currentTime < 1) {
+                    currentAudio.currentTime = startTime;
+                    console.log(`Fallback seek to ${startTime}s`);
+                }
+            } catch (e) {
+                console.error('Fallback seek failed:', e);
+            }
+        }
+    }, 200);
 
     // Start playing
     currentAudio.play().catch(error => {
