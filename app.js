@@ -79,62 +79,52 @@ function playSound(index) {
         removePlayingState();
     }
 
-    // Create new audio element
-    currentAudio = new Audio(sound.url);
-    const startTime = sound.startTime || 0;
-    
-    // Add playing state to button
+    // Reuse the preloaded element: no new download, no new decode
+    const audio = audios[index];
+    currentAudio = audio;
     button.classList.add('playing');
 
-    // Remove playing state when audio ends
-    currentAudio.addEventListener('ended', () => {
-        removePlayingState();
-        currentAudio = null;
-    });
+    // Seeking before play() works once metadata is loaded (it is, after preload).
+    // If not loaded yet, the browser applies currentTime as soon as it can.
+    try {
+        audio.currentTime = sound.startTime || 0;
+    } catch (e) {
+        console.error('Could not seek:', e);
+    }
 
-    // Handle errors
-    currentAudio.addEventListener('error', (e) => {
-        console.error('Audio error:', e);
-        alert('Fehler beim Laden des Sounds!');
-        removePlayingState();
-        currentAudio = null;
-    });
-
-    // Play and seek when ready
-    currentAudio.addEventListener('loadedmetadata', () => {
-        try {
-            console.log(`Audio duration: ${currentAudio.duration}, Start time: ${startTime}`);
-            if (startTime > 0 && startTime < currentAudio.duration) {
-                currentAudio.currentTime = startTime;
-                console.log(`Seeked to ${startTime}s`);
-            } else if (startTime >= currentAudio.duration) {
-                console.warn(`Start time ${startTime}s exceeds duration ${currentAudio.duration}s`);
-            }
-        } catch (e) {
-            console.error('Could not seek:', e);
-        }
-    }, { once: true });
-
-    // Fallback: try to seek after a short delay if metadata doesn't load
-    setTimeout(() => {
-        if (currentAudio && !currentAudio.paused) {
-            try {
-                if (startTime > 0 && currentAudio.currentTime < 1) {
-                    currentAudio.currentTime = startTime;
-                    console.log(`Fallback seek to ${startTime}s`);
-                }
-            } catch (e) {
-                console.error('Fallback seek failed:', e);
-            }
-        }
-    }, 200);
-
-    // Start playing
-    currentAudio.play().catch(error => {
+    audio.play().catch(error => {
+        if (currentAudio !== audio) return; // already switched to another sound
         console.error('Play error:', error);
         alert('Fehler beim Abspielen: ' + error.message);
         removePlayingState();
         currentAudio = null;
+    });
+}
+
+// Preloaded audio elements, one per button
+let audios = [];
+
+function preloadAudios() {
+    audios.forEach(a => a.pause());
+    audios = config.sounds.map((sound) => {
+        const audio = new Audio();
+        audio.preload = 'auto';
+        audio.src = sound.url || '';
+        audio.addEventListener('ended', () => {
+            if (currentAudio === audio) {
+                removePlayingState();
+                currentAudio = null;
+            }
+        });
+        audio.addEventListener('error', (e) => {
+            if (!sound.url || currentAudio !== audio) return; // only complain when the user is waiting for it
+            console.error('Audio error:', e);
+            alert('Fehler beim Laden des Sounds!');
+            removePlayingState();
+            currentAudio = null;
+        });
+        if (sound.url) audio.load();
+        return audio;
     });
 }
 
@@ -203,6 +193,8 @@ function saveSettings() {
     // Save to localStorage
     if (saveConfig(config)) {
         updateButtonLabels();
+        stopSound();
+        preloadAudios(); // URLs may have changed
         closeSettings();
         
         // Show brief success feedback
@@ -222,10 +214,19 @@ function saveSettings() {
 document.addEventListener('DOMContentLoaded', () => {
     // Update button labels on load
     updateButtonLabels();
+    preloadAudios();
 
-    // Sound buttons
+    // Sound buttons: react on touch-down, not on release (click fires ~100ms+ later)
     document.querySelectorAll('.sound-btn').forEach((btn, index) => {
-        btn.addEventListener('click', () => playSound(index));
+        btn.addEventListener('pointerdown', (e) => {
+            if (!e.isPrimary || e.button !== 0) return;
+            e.preventDefault();
+            playSound(index);
+        });
+        // Keyboard (Enter/Space) still triggers click with detail === 0
+        btn.addEventListener('click', (e) => {
+            if (e.detail === 0) playSound(index);
+        });
     });
 
     // Settings button
