@@ -223,17 +223,10 @@ document.addEventListener('DOMContentLoaded', () => {
     updateButtonLabels();
     preloadAudios();
 
-    // Sound buttons: react on touch-down, not on release (click fires ~100ms+ later)
+    // Sound buttons: must be 'click'. A touch 'pointerdown' is not a user
+    // activation, so mobile browsers block play() on it.
     document.querySelectorAll('.sound-btn').forEach((btn, index) => {
-        btn.addEventListener('pointerdown', (e) => {
-            if (!e.isPrimary || e.button !== 0) return;
-            e.preventDefault();
-            playSound(index);
-        });
-        // Keyboard (Enter/Space) still triggers click with detail === 0
-        btn.addEventListener('click', (e) => {
-            if (e.detail === 0) playSound(index);
-        });
+        btn.addEventListener('click', () => playSound(index));
     });
 
     // Settings button
