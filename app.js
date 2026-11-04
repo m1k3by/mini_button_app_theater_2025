@@ -1,5 +1,5 @@
 // Storage key
-const STORAGE_KEY = 'theater_sounds_config';
+const STORAGE_KEY = 'theater_sounds_config_v2'; // v2: neue Songs, alte gespeicherte Konfig ignorieren
 
 // Audio element
 let currentAudio = null;
@@ -7,10 +7,12 @@ let currentAudio = null;
 // Default configuration
 const defaultConfig = {
     sounds: [
-        { name: 'Theatergong', url: 'Theatergong.mp3', startTime: 0 },
-        { name: 'Klingelton', url: 'Klingelton.mp3', startTime: 0 },
-        { name: 'Magic Mike', url: 'magic_mike.mp3', startTime: 0 },
-        { name: 'Sexbomb', url: 'sexbomb.mp3', startTime: 0 }
+        { name: 'Crash', url: 'crash.mp3', startTime: 0 },
+        { name: 'Traumschiff', url: 'traumschiff.mp3', startTime: 0 },
+        { name: 'Airhorn', url: 'airhorn.mp3', startTime: 0 },
+        { name: 'Shiphorn', url: 'shiphorn.mp3', startTime: 0 },
+        { name: 'Time to say goodbye', url: 'time_to_say_goodbye.mp3', startTime: 0 },
+        { name: 'Seemann lass träumen', url: 'seemann_lass_traeumen.mp3', startTime: 0 }
     ]
 };
 
@@ -236,7 +238,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('saveBtn').addEventListener('click', saveSettings);
 
     // Time sliders - update display in real-time
-    for (let i = 1; i <= 4; i++) {
+    for (let i = 1; i <= config.sounds.length; i++) {
         const slider = document.getElementById(`sound${i}-start`);
         slider.addEventListener('input', (e) => {
             updateTimeDisplay(i - 1, parseFloat(e.target.value));

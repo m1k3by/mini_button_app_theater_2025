@@ -27,6 +27,12 @@
             <button class="sound-btn" data-sound="4">
                 <span class="btn-label" id="label4">Sound 4</span>
             </button>
+            <button class="sound-btn" data-sound="5">
+                <span class="btn-label" id="label5">Sound 5</span>
+            </button>
+            <button class="sound-btn" data-sound="6">
+                <span class="btn-label" id="label6">Sound 6</span>
+            </button>
         </div>
     </div>
 
@@ -80,6 +86,28 @@
                     
                     <label for="sound4-start">Startzeit: <span id="sound4-time">0:00</span></label>
                     <input type="range" id="sound4-start" value="0" min="0" max="300" step="0.5">
+                </div>
+
+                <div class="setting-group">
+                    <label for="sound5-name">Sound 5 Name:</label>
+                    <input type="text" id="sound5-name" placeholder="Sound 5">
+
+                    <label for="sound5-url">Sound 5 URL:</label>
+                    <input type="url" id="sound5-url" placeholder="https://...">
+
+                    <label for="sound5-start">Startzeit: <span id="sound5-time">0:00</span></label>
+                    <input type="range" id="sound5-start" value="0" min="0" max="300" step="0.5">
+                </div>
+
+                <div class="setting-group">
+                    <label for="sound6-name">Sound 6 Name:</label>
+                    <input type="text" id="sound6-name" placeholder="Sound 6">
+
+                    <label for="sound6-url">Sound 6 URL:</label>
+                    <input type="url" id="sound6-url" placeholder="https://...">
+
+                    <label for="sound6-start">Startzeit: <span id="sound6-time">0:00</span></label>
+                    <input type="range" id="sound6-start" value="0" min="0" max="300" step="0.5">
                 </div>
 
                 <button class="save-btn" id="saveBtn">💾 Speichern</button>
