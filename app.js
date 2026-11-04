@@ -211,42 +211,67 @@ function initCardDrag() {
 
     let card = null; // card being dragged
 
-    document.querySelectorAll('.drag-handle').forEach(handle => {
-        handle.addEventListener('pointerdown', (e) => {
-            e.preventDefault();
-            card = handle.closest('.setting-group');
-            card.classList.add('dragging');
-        });
-    });
+    const start = (handle) => {
+        card = handle.closest('.setting-group');
+        card.classList.add('dragging');
+    };
 
-    // Listen on document, not the handle: moving the card in the DOM drops
-    // pointer capture, so the handle would stop receiving move/up events.
-    document.addEventListener('pointermove', (e) => {
+    const move = (clientY) => {
         if (!card) return;
 
         // Scroll the modal when dragging near the top/bottom edge
-        if (e.clientY < 60) scroller.scrollBy(0, -15);
-        else if (e.clientY > window.innerHeight - 60) scroller.scrollBy(0, 15);
+        if (clientY < 60) scroller.scrollBy(0, -15);
+        else if (clientY > window.innerHeight - 60) scroller.scrollBy(0, 15);
 
         // Card moves live in front of the first card whose middle is below the finger
         const others = [...body.querySelectorAll('.setting-group:not(.dragging)')];
         const target = others.find(g => {
             const r = g.getBoundingClientRect();
-            return e.clientY < r.top + r.height / 2;
+            return clientY < r.top + r.height / 2;
         });
         const ref = target || document.getElementById('saveBtn');
         if (card.nextElementSibling !== ref) {
             body.insertBefore(card, ref);
             renumberCards();
         }
-    });
+    };
 
     const drop = () => {
         if (card) card.classList.remove('dragging');
         card = null;
     };
-    document.addEventListener('pointerup', drop);
-    document.addEventListener('pointercancel', drop);
+
+    document.querySelectorAll('.drag-handle').forEach(handle => {
+        // Finger: touch events. iOS Safari ignores touch-action:none, so only
+        // preventDefault on a non-passive touchstart stops the page from scrolling
+        // (which would cancel the drag). Touch events also keep their target when
+        // the card is moved in the DOM.
+        handle.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            start(handle);
+        }, { passive: false });
+        handle.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            move(e.touches[0].clientY);
+        }, { passive: false });
+        handle.addEventListener('touchend', drop);
+        handle.addEventListener('touchcancel', drop);
+
+        // Mouse: pointer events (touch already handled above)
+        handle.addEventListener('pointerdown', (e) => {
+            if (e.pointerType !== 'mouse') return;
+            e.preventDefault();
+            start(handle);
+        });
+    });
+
+    // On document, not the handle: moving the card in the DOM drops pointer capture
+    document.addEventListener('pointermove', (e) => {
+        if (e.pointerType === 'mouse') move(e.clientY);
+    });
+    document.addEventListener('pointerup', (e) => {
+        if (e.pointerType === 'mouse') drop();
+    });
 }
 
 // Save settings
