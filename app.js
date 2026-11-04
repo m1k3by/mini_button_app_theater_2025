@@ -14,8 +14,9 @@ const defaultConfig = {
         { name: 'Time to say goodbye', url: 'time_to_say_goodbye.mp3', startTime: 0 },
         { name: 'Seemann lass träumen', url: 'seemann_lass_traeumen.mp3', startTime: 0 },
         { name: 'Pfurz', url: 'pfurz.mp3', startTime: 0 },
-        { name: 'Kack', url: 'kack.mp3', startTime: 0 },
-        { name: 'Secret Song', url: 'secret_song.mp3', startTime: 0 }
+        { name: 'Secret Song', url: 'secret_song.mp3', startTime: 0 },
+        { name: 'Französische Musik', url: 'franzoesische_musik.mp3', startTime: 0 },
+        { name: 'Theatergong', url: 'theatergong.mp3', startTime: 0 }
     ]
 };
 
@@ -170,7 +171,15 @@ function updateTimeDisplay(index, value) {
 // Open settings modal
 function openSettings() {
     const modal = document.getElementById('settingsModal');
-    
+
+    // Undo any unsaved drag: card N (by its input ids) back to position N
+    const body = document.querySelector('.modal-body');
+    const saveBtn = document.getElementById('saveBtn');
+    config.sounds.forEach((_, index) => {
+        body.insertBefore(document.getElementById(`sound${index + 1}-name`).closest('.setting-group'), saveBtn);
+    });
+    renumberCards();
+
     // Populate fields with current config
     config.sounds.forEach((sound, index) => {
         document.getElementById(`sound${index + 1}-name`).value = sound.name || '';
@@ -188,13 +197,66 @@ function closeSettings() {
     modal.classList.remove('active');
 }
 
+// Position number on each settings card
+function renumberCards() {
+    document.querySelectorAll('.setting-group .drag-num').forEach((num, i) => {
+        num.textContent = i + 1;
+    });
+}
+
+// Drag a settings card by its handle (pointer events: works for finger and mouse)
+function initCardDrag() {
+    const body = document.querySelector('.modal-body');
+    const scroller = document.getElementById('settingsModal');
+
+    let card = null; // card being dragged
+
+    document.querySelectorAll('.drag-handle').forEach(handle => {
+        handle.addEventListener('pointerdown', (e) => {
+            e.preventDefault();
+            card = handle.closest('.setting-group');
+            card.classList.add('dragging');
+        });
+    });
+
+    // Listen on document, not the handle: moving the card in the DOM drops
+    // pointer capture, so the handle would stop receiving move/up events.
+    document.addEventListener('pointermove', (e) => {
+        if (!card) return;
+
+        // Scroll the modal when dragging near the top/bottom edge
+        if (e.clientY < 60) scroller.scrollBy(0, -15);
+        else if (e.clientY > window.innerHeight - 60) scroller.scrollBy(0, 15);
+
+        // Card moves live in front of the first card whose middle is below the finger
+        const others = [...body.querySelectorAll('.setting-group:not(.dragging)')];
+        const target = others.find(g => {
+            const r = g.getBoundingClientRect();
+            return e.clientY < r.top + r.height / 2;
+        });
+        const ref = target || document.getElementById('saveBtn');
+        if (card.nextElementSibling !== ref) {
+            body.insertBefore(card, ref);
+            renumberCards();
+        }
+    });
+
+    const drop = () => {
+        if (card) card.classList.remove('dragging');
+        card = null;
+    };
+    document.addEventListener('pointerup', drop);
+    document.addEventListener('pointercancel', drop);
+}
+
 // Save settings
 function saveSettings() {
     // Update config with form values
-    config.sounds = config.sounds.map((sound, index) => ({
-        name: document.getElementById(`sound${index + 1}-name`).value || `Sound ${index + 1}`,
-        url: document.getElementById(`sound${index + 1}-url`).value || '',
-        startTime: parseFloat(document.getElementById(`sound${index + 1}-start`).value) || 0
+    // Read cards in their on-screen order: that order becomes the button order
+    config.sounds = [...document.querySelectorAll('.setting-group')].map((group, index) => ({
+        name: group.querySelector('input[type="text"]').value || `Sound ${index + 1}`,
+        url: group.querySelector('input[type="url"]').value || '',
+        startTime: parseFloat(group.querySelector('input[type="range"]').value) || 0
     }));
 
     // Save to localStorage
@@ -245,6 +307,8 @@ document.addEventListener('DOMContentLoaded', () => {
             updateTimeDisplay(i - 1, parseFloat(e.target.value));
         });
     }
+
+    initCardDrag();
 
     // Close modal when clicking outside
     document.getElementById('settingsModal').addEventListener('click', (e) => {
