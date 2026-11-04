@@ -110,6 +110,10 @@ header {
     pointer-events: none;
 }
 
+.sound-btn-wide {
+    grid-column: span 2;
+}
+
 .sound-btn:active {
     transform: translateY(2px);
     box-shadow: 0 4px 8px rgba(0,0,0,0.3), inset 0 2px 4px rgba(0,0,0,0.2);

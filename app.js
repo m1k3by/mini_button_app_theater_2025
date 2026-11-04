@@ -12,7 +12,10 @@ const defaultConfig = {
         { name: 'Airhorn', url: 'airhorn.mp3', startTime: 0 },
         { name: 'Shiphorn', url: 'shiphorn.mp3', startTime: 0 },
         { name: 'Time to say goodbye', url: 'time_to_say_goodbye.mp3', startTime: 0 },
-        { name: 'Seemann lass träumen', url: 'seemann_lass_traeumen.mp3', startTime: 0 }
+        { name: 'Seemann lass träumen', url: 'seemann_lass_traeumen.mp3', startTime: 0 },
+        { name: 'Pfurz', url: 'pfurz.mp3', startTime: 0 },
+        { name: 'Kack', url: 'kack.mp3', startTime: 0 },
+        { name: 'Secret Song', url: 'secret_song.mp3', startTime: 0 }
     ]
 };
 
@@ -20,7 +23,11 @@ const defaultConfig = {
 function loadConfig() {
     try {
         const saved = localStorage.getItem(STORAGE_KEY);
-        return saved ? JSON.parse(saved) : defaultConfig;
+        if (!saved) return defaultConfig;
+        const parsed = JSON.parse(saved);
+        // Buttons added after the user saved: fill them from the defaults
+        parsed.sounds.push(...defaultConfig.sounds.slice(parsed.sounds.length));
+        return parsed;
     } catch (e) {
         console.error('Error loading config:', e);
         return defaultConfig;
