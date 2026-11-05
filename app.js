@@ -16,7 +16,14 @@ const defaultConfig = {
         { name: 'Pfurz', url: 'pfurz.mp3', startTime: 0 },
         { name: 'Secret Song', url: 'secret_song.mp3', startTime: 0 },
         { name: 'Französische Musik', url: 'franzoesische_musik.mp3', startTime: 0 },
-        { name: 'Theatergong', url: 'theatergong.mp3', startTime: 0 }
+        { name: 'Theatergong', url: 'theatergong.mp3', startTime: 0 },
+        { name: 'Meer & Möwen', url: 'meer_moewen.mp3', startTime: 0 },
+        { name: 'Yoga Musik', url: 'yoga_musik.mp3', startTime: 0 },
+        { name: 'Rückwärts-Piepen Truck', url: 'rueckwaerts_piepen.mp3', startTime: 0 },
+        { name: 'Zuckerpuppe', url: 'zuckerpuppe.mp3', startTime: 0 },
+        { name: 'Love to Love You Baby', url: 'love_to_love_you_baby.mp3', startTime: 0 },
+        { name: 'Warnsignal', url: 'warnsignal.mp3', startTime: 0 },
+        { name: 'Dinner-Marsch', url: 'dinner_marsch.mp3', startTime: 0 }
     ]
 };
 
