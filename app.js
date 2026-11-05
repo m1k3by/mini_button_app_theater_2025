@@ -29,16 +29,22 @@ const defaultConfig = {
 
 // Load configuration from localStorage
 function loadConfig() {
+    const defaultUrls = defaultConfig.sounds.map(s => s.url);
+    const fresh = () => ({ sounds: structuredClone(defaultConfig.sounds), seen: defaultUrls });
     try {
         const saved = localStorage.getItem(STORAGE_KEY);
-        if (!saved) return defaultConfig;
+        if (!saved) return fresh();
         const parsed = JSON.parse(saved);
-        // Buttons added after the user saved: fill them from the defaults
-        parsed.sounds.push(...defaultConfig.sounds.slice(parsed.sounds.length));
+        // Default songs added to the app after the user saved show up once.
+        // `seen` stops deleted default songs from coming back.
+        // Configs from before `seen` knew the defaults up to their own length.
+        const seen = parsed.seen || defaultUrls.slice(0, parsed.sounds.length);
+        parsed.sounds.push(...structuredClone(defaultConfig.sounds.filter(s => !seen.includes(s.url))));
+        parsed.seen = defaultUrls;
         return parsed;
     } catch (e) {
         console.error('Error loading config:', e);
-        return defaultConfig;
+        return fresh();
     }
 }
 
@@ -56,14 +62,57 @@ function saveConfig(config) {
 // Initialize app
 let config = loadConfig();
 
-// Update button labels
-function updateButtonLabels() {
-    config.sounds.forEach((sound, index) => {
-        const label = document.getElementById(`label${index + 1}`);
-        if (label) {
-            label.textContent = sound.name || `Sound ${index + 1}`;
-        }
-    });
+// Uploaded songs live on this device only (IndexedDB, there is no server).
+// In the config they appear as url 'upload:<id>'.
+const uploadDB = new Promise((resolve, reject) => {
+    const req = indexedDB.open('theater_uploads', 1);
+    req.onupgradeneeded = () => req.result.createObjectStore('files');
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+});
+
+function uploads(mode, fn) {
+    return uploadDB.then(db => new Promise((resolve, reject) => {
+        const tx = db.transaction('files', mode);
+        const req = fn(tx.objectStore('files'));
+        tx.oncomplete = () => resolve(req.result);
+        tx.onerror = () => reject(tx.error);
+    }));
+}
+
+const isUpload = (url) => (url || '').startsWith('upload:');
+const blobUrls = {}; // id -> Promise<object URL>
+
+function uploadSrc(url) {
+    const id = url.slice(7);
+    return blobUrls[id] ||= uploads('readonly', s => s.get(id)).then(blob => blob ? URL.createObjectURL(blob) : '');
+}
+
+// Delete stored files no song refers to anymore (deleted songs)
+function dropUnusedUploads() {
+    const used = config.sounds.filter(s => isUpload(s.url)).map(s => s.url.slice(7));
+    uploads('readonly', s => s.getAllKeys()).then(keys => {
+        keys.filter(k => !used.includes(k)).forEach(k => {
+            uploads('readwrite', s => s.delete(k));
+            delete blobUrls[k];
+        });
+    }).catch(e => console.error('Upload cleanup failed:', e));
+}
+
+// One button per song
+function renderButtons() {
+    document.getElementById('buttonsGrid').replaceChildren(...config.sounds.map((sound, index) => {
+        const btn = document.createElement('button');
+        btn.className = 'sound-btn';
+        const label = document.createElement('span');
+        label.className = 'btn-label';
+        label.textContent = sound.name || `Sound ${index + 1}`;
+        btn.append(label);
+        // Must be 'click'. A touch 'pointerdown' is not a user activation,
+        // so mobile browsers block play() on it.
+        btn.addEventListener('click', () => playSound(index));
+        return btn;
+    }));
 }
 
 // Play/Stop sound (Toggle)
@@ -71,7 +120,7 @@ function playSound(index) {
     const sound = config.sounds[index];
     const buttons = document.querySelectorAll('.sound-btn');
     const button = buttons[index];
-    
+
     // If this button is already playing, stop it
     if (button.classList.contains('playing')) {
         if (currentAudio) {
@@ -81,7 +130,7 @@ function playSound(index) {
         removePlayingState();
         return;
     }
-    
+
     if (!sound.url) {
         alert('Bitte zuerst eine Sound-URL in den Einstellungen konfigurieren!');
         return;
@@ -124,7 +173,6 @@ function preloadAudios() {
     audios = config.sounds.map((sound, index) => {
         const audio = new Audio();
         audio.preload = 'auto';
-        audio.src = sound.url || '';
         // Start-time slider reaches exactly to the end of the song
         audio.addEventListener('loadedmetadata', () => {
             const slider = document.getElementById(`sound${index + 1}-start`);
@@ -143,7 +191,12 @@ function preloadAudios() {
             removePlayingState();
             currentAudio = null;
         });
-        if (sound.url) audio.load();
+        if (isUpload(sound.url)) {
+            uploadSrc(sound.url).then(src => { audio.src = src; audio.load(); });
+        } else if (sound.url) {
+            audio.src = sound.url;
+            audio.load();
+        }
         return audio;
     });
 }
@@ -172,35 +225,72 @@ function formatTime(seconds) {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
 }
 
-// Update time display for slider
-function updateTimeDisplay(index, value) {
-    const display = document.getElementById(`sound${index + 1}-time`);
-    if (display) {
-        display.textContent = formatTime(value);
+// One settings card per song. Rebuilt on every open, which also undoes unsaved drags.
+function renderCards() {
+    document.getElementById('cardList').replaceChildren(...config.sounds.map((sound, index) => {
+        const n = index + 1;
+        const card = document.createElement('div');
+        card.className = 'setting-group';
+        card.innerHTML = `
+            <div class="drag-head">
+                <span class="drag-handle" title="Ziehen zum Verschieben">⠿</span>
+                <span class="drag-num">${n}</span>
+                <button type="button" class="delete-btn">Löschen</button>
+            </div>
+            <label for="sound${n}-name">Name:</label>
+            <input type="text" id="sound${n}-name" placeholder="Sound ${n}">
+            <label for="sound${n}-url">URL:</label>
+            <input type="url" id="sound${n}-url" placeholder="https://...">
+            <label for="sound${n}-start">Startzeit: <span class="start-time">0:00</span></label>
+            <input type="range" id="sound${n}-start" min="0" step="0.5">`;
+        card.querySelector('[type=text]').value = sound.name || '';
+
+        const url = card.querySelector('[type=url]');
+        if (isUpload(sound.url)) {
+            card.dataset.upload = sound.url;
+            url.value = 'Hochgeladene Datei';
+            url.disabled = true;
+        } else {
+            url.value = sound.url || '';
+        }
+
+        // Max before value, or the value gets clamped
+        const slider = card.querySelector('[type=range]');
+        const duration = audios[index] && audios[index].duration;
+        slider.max = isFinite(duration) ? Math.floor(duration) : Math.max(300, sound.startTime || 0);
+        slider.value = sound.startTime || 0;
+        card.querySelector('.start-time').textContent = formatTime(sound.startTime || 0);
+        return card;
+    }));
+}
+
+// Cards in their on-screen order: that order becomes the button order
+function readCards() {
+    return [...document.querySelectorAll('#cardList .setting-group')].map((group, index) => ({
+        name: group.querySelector('[type=text]').value || `Sound ${index + 1}`,
+        url: group.dataset.upload || group.querySelector('[type=url]').value || '',
+        startTime: parseFloat(group.querySelector('[type=range]').value) || 0
+    }));
+}
+
+// Store a new song list and rebuild everything that depends on it
+function applySounds(sounds) {
+    config.sounds = sounds;
+    if (!saveConfig(config)) {
+        alert('Fehler beim Speichern der Einstellungen!');
+        return false;
     }
+    stopSound();
+    renderButtons();
+    preloadAudios(); // URLs may have changed
+    dropUnusedUploads();
+    return true;
 }
 
 // Open settings modal
 function openSettings() {
-    const modal = document.getElementById('settingsModal');
-
-    // Undo any unsaved drag: card N (by its input ids) back to position N
-    const body = document.querySelector('.modal-body');
-    const saveBtn = document.getElementById('saveBtn');
-    config.sounds.forEach((_, index) => {
-        body.insertBefore(document.getElementById(`sound${index + 1}-name`).closest('.setting-group'), saveBtn);
-    });
-    renumberCards();
-
-    // Populate fields with current config
-    config.sounds.forEach((sound, index) => {
-        document.getElementById(`sound${index + 1}-name`).value = sound.name || '';
-        document.getElementById(`sound${index + 1}-url`).value = sound.url || '';
-        document.getElementById(`sound${index + 1}-start`).value = sound.startTime || 0;
-        updateTimeDisplay(index, sound.startTime || 0);
-    });
-    
-    modal.classList.add('active');
+    renderCards();
+    document.getElementById('settingsModal').classList.add('active');
 }
 
 // Close settings modal
@@ -216,9 +306,49 @@ function renumberCards() {
     });
 }
 
-// Drag a settings card by its handle (pointer events: works for finger and mouse)
+// Delete needs two taps: the first arms the button, the second deletes for real
+function handleDelete(btn) {
+    if (!btn.classList.contains('confirm')) {
+        btn.classList.add('confirm');
+        btn.textContent = 'Wirklich löschen?';
+        setTimeout(() => {
+            btn.classList.remove('confirm');
+            btn.textContent = 'Löschen';
+        }, 3000);
+        return;
+    }
+    btn.closest('.setting-group').remove();
+    applySounds(readCards()); // saved right away, together with the other card edits
+    renderCards();
+}
+
+// Upload: file picker or drag and drop. Each file becomes a new song at the end.
+async function addFiles(files) {
+    files = [...files];
+    if (!files.length) return;
+    if (navigator.storage && navigator.storage.persist) navigator.storage.persist();
+
+    const settingsOpen = document.getElementById('settingsModal').classList.contains('active');
+    const sounds = settingsOpen ? readCards() : config.sounds;
+    try {
+        // One after another: cleanup must never see a stored file before its song
+        for (const file of files) {
+            const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+            await uploads('readwrite', s => s.put(file, id));
+            sounds.push({ name: file.name.replace(/\.[^.]+$/, ''), url: 'upload:' + id, startTime: 0 });
+        }
+    } catch (e) {
+        console.error('Upload failed:', e);
+        alert('Fehler beim Hochladen: ' + e.message);
+    }
+    applySounds(sounds);
+    renderCards();
+    if (settingsOpen) document.getElementById('cardList').lastElementChild.scrollIntoView({ block: 'center' });
+}
+
+// Drag a settings card by its handle (touch for fingers, pointer events for the mouse)
 function initCardDrag() {
-    const body = document.querySelector('.modal-body');
+    const list = document.getElementById('cardList');
     const scroller = document.getElementById('settingsModal');
 
     // The DOM stays untouched while dragging: the card follows the finger via
@@ -228,8 +358,9 @@ function initCardDrag() {
 
     const start = (handle, clientY) => {
         if (settling) return;
+        cards = [...list.children];
+        if (cards.length < 2) return;
         card = handle.closest('.setting-group');
-        cards = [...body.querySelectorAll('.setting-group')];
         from = to = cards.indexOf(card);
         step = cards[1].offsetTop - cards[0].offsetTop; // all cards are the same height
         startY = clientY;
@@ -274,39 +405,41 @@ function initCardDrag() {
         setTimeout(() => {
             const order = cards.filter(c => c !== done);
             order.splice(to, 0, done);
-            body.classList.add('no-anim');
-            order.forEach(c => { body.insertBefore(c, document.getElementById('saveBtn')); c.style.transform = ''; });
-            body.offsetHeight; // apply without transition
-            body.classList.remove('no-anim');
+            list.classList.add('no-anim');
+            order.forEach(c => { list.append(c); c.style.transform = ''; });
+            list.offsetHeight; // apply without transition
+            list.classList.remove('no-anim');
             renumberCards();
             settling = false;
         }, 250);
     };
 
-    document.querySelectorAll('.drag-handle').forEach(handle => {
-        // Finger: touch events. iOS Safari ignores touch-action:none, so only
-        // preventDefault on a non-passive touchstart stops the page from scrolling
-        // (which would cancel the drag). Touch events also keep their target when
-        // the card is moved in the DOM.
-        handle.addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            start(handle, e.touches[0].clientY);
-            byMouse = false;
-        }, { passive: false });
-        handle.addEventListener('touchmove', (e) => {
-            e.preventDefault();
-            move(e.touches[0].clientY);
-        }, { passive: false });
-        handle.addEventListener('touchend', drop);
-        handle.addEventListener('touchcancel', drop);
+    // Delegated on the list: cards are re-rendered, the list stays.
+    // Finger: iOS Safari ignores touch-action:none, so only preventDefault on a
+    // non-passive touchstart stops the page from scrolling (which would cancel
+    // the drag). Touch events keep their target when the card moves in the DOM.
+    list.addEventListener('touchstart', (e) => {
+        const handle = e.target.closest('.drag-handle');
+        if (!handle) return;
+        e.preventDefault();
+        byMouse = false;
+        start(handle, e.touches[0].clientY);
+    }, { passive: false });
+    list.addEventListener('touchmove', (e) => {
+        if (!card || byMouse) return;
+        e.preventDefault();
+        move(e.touches[0].clientY);
+    }, { passive: false });
+    list.addEventListener('touchend', () => { if (!byMouse) drop(); });
+    list.addEventListener('touchcancel', () => { if (!byMouse) drop(); });
 
-        // Mouse: pointer events (touch already handled above)
-        handle.addEventListener('pointerdown', (e) => {
-            if (e.pointerType !== 'mouse') return;
-            e.preventDefault();
-            start(handle, e.clientY);
-            byMouse = true;
-        });
+    // Mouse: pointer events (touch already handled above)
+    list.addEventListener('pointerdown', (e) => {
+        const handle = e.target.closest('.drag-handle');
+        if (!handle || e.pointerType !== 'mouse') return;
+        e.preventDefault();
+        byMouse = true;
+        start(handle, e.clientY);
     });
 
     // On document, not the handle: moving the card in the DOM drops pointer capture
@@ -320,45 +453,15 @@ function initCardDrag() {
 
 // Save settings
 function saveSettings() {
-    // Update config with form values
-    // Read cards in their on-screen order: that order becomes the button order
-    config.sounds = [...document.querySelectorAll('.setting-group')].map((group, index) => ({
-        name: group.querySelector('input[type="text"]').value || `Sound ${index + 1}`,
-        url: group.querySelector('input[type="url"]').value || '',
-        startTime: parseFloat(group.querySelector('input[type="range"]').value) || 0
-    }));
-
-    // Save to localStorage
-    if (saveConfig(config)) {
-        updateButtonLabels();
-        stopSound();
-        preloadAudios(); // URLs may have changed
+    if (applySounds(readCards())) {
         closeSettings();
-        
-        // Show brief success feedback
-        const saveBtn = document.getElementById('saveBtn');
-        const originalText = saveBtn.textContent;
-        saveBtn.textContent = '✓ Gespeichert!';
-        
-        setTimeout(() => {
-            saveBtn.textContent = originalText;
-        }, 1500);
-    } else {
-        alert('Fehler beim Speichern der Einstellungen!');
     }
 }
 
 // Event listeners
 document.addEventListener('DOMContentLoaded', () => {
-    // Update button labels on load
-    updateButtonLabels();
+    renderButtons();
     preloadAudios();
-
-    // Sound buttons: must be 'click'. A touch 'pointerdown' is not a user
-    // activation, so mobile browsers block play() on it.
-    document.querySelectorAll('.sound-btn').forEach((btn, index) => {
-        btn.addEventListener('click', () => playSound(index));
-    });
 
     // Settings button
     document.getElementById('settingsBtn').addEventListener('click', openSettings);
@@ -369,13 +472,43 @@ document.addEventListener('DOMContentLoaded', () => {
     // Save button
     document.getElementById('saveBtn').addEventListener('click', saveSettings);
 
+    const list = document.getElementById('cardList');
+
     // Time sliders - update display in real-time
-    for (let i = 1; i <= config.sounds.length; i++) {
-        const slider = document.getElementById(`sound${i}-start`);
-        slider.addEventListener('input', (e) => {
-            updateTimeDisplay(i - 1, parseFloat(e.target.value));
-        });
-    }
+    list.addEventListener('input', (e) => {
+        if (e.target.type !== 'range') return;
+        e.target.closest('.setting-group').querySelector('.start-time').textContent = formatTime(parseFloat(e.target.value));
+    });
+
+    // Delete buttons
+    list.addEventListener('click', (e) => {
+        const btn = e.target.closest('.delete-btn');
+        if (btn) handleDelete(btn);
+    });
+
+    // Upload via file picker (on the phone this opens its file browser)
+    const fileInput = document.getElementById('fileInput');
+    fileInput.addEventListener('change', () => {
+        addFiles(fileInput.files);
+        fileInput.value = '';
+    });
+
+    // Upload via drag and drop: files can be dropped anywhere on the page
+    const zone = document.getElementById('uploadZone');
+    window.addEventListener('dragover', (e) => {
+        if (!e.dataTransfer.types.includes('Files')) return;
+        e.preventDefault(); // otherwise the browser opens the file itself
+        zone.classList.add('dragover');
+    });
+    window.addEventListener('dragleave', (e) => {
+        if (!e.relatedTarget) zone.classList.remove('dragover');
+    });
+    window.addEventListener('drop', (e) => {
+        if (!e.dataTransfer.files.length) return;
+        e.preventDefault();
+        zone.classList.remove('dragover');
+        addFiles(e.dataTransfer.files);
+    });
 
     initCardDrag();
 
