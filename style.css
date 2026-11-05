@@ -265,13 +265,21 @@ header {
     padding: 0.1rem 0.4rem;
 }
 
+/* Cards slide aside smoothly; the dragged one follows the finger without delay */
+.setting-group {
+    position: relative;
+    transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.2s;
+}
+
 .setting-group.dragging {
     background: #fff8e1;
-    outline: 3px dashed #000080;
-    outline-offset: 4px;
-    transform: rotate(-1deg);
-    position: relative;
-    z-index: 1;
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.3);
+    transition: box-shadow 0.2s;
+    z-index: 2;
+}
+
+.modal-body.no-anim .setting-group {
+    transition: none;
 }
 
 .setting-group.dragging .drag-handle {

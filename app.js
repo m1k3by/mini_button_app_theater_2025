@@ -121,10 +121,15 @@ let audios = [];
 
 function preloadAudios() {
     audios.forEach(a => a.pause());
-    audios = config.sounds.map((sound) => {
+    audios = config.sounds.map((sound, index) => {
         const audio = new Audio();
         audio.preload = 'auto';
         audio.src = sound.url || '';
+        // Start-time slider reaches exactly to the end of the song
+        audio.addEventListener('loadedmetadata', () => {
+            const slider = document.getElementById(`sound${index + 1}-start`);
+            if (slider && isFinite(audio.duration)) slider.max = Math.floor(audio.duration);
+        });
         audio.addEventListener('ended', () => {
             if (currentAudio === audio) {
                 removePlayingState();
@@ -216,10 +221,19 @@ function initCardDrag() {
     const body = document.querySelector('.modal-body');
     const scroller = document.getElementById('settingsModal');
 
-    let card = null; // card being dragged
+    // The DOM stays untouched while dragging: the card follows the finger via
+    // transform, the others slide aside (CSS transition). The DOM is reordered
+    // only once, after the card has glided into its slot.
+    let card = null, byMouse = false, cards, from, to, step, startY, startScroll, settling = false;
 
-    const start = (handle) => {
+    const start = (handle, clientY) => {
+        if (settling) return;
         card = handle.closest('.setting-group');
+        cards = [...body.querySelectorAll('.setting-group')];
+        from = to = cards.indexOf(card);
+        step = cards[1].offsetTop - cards[0].offsetTop; // all cards are the same height
+        startY = clientY;
+        startScroll = scroller.scrollTop;
         card.classList.add('dragging');
     };
 
@@ -230,22 +244,43 @@ function initCardDrag() {
         if (clientY < 60) scroller.scrollBy(0, -15);
         else if (clientY > window.innerHeight - 60) scroller.scrollBy(0, 15);
 
-        // Card moves live in front of the first card whose middle is below the finger
-        const others = [...body.querySelectorAll('.setting-group:not(.dragging)')];
-        const target = others.find(g => {
-            const r = g.getBoundingClientRect();
-            return clientY < r.top + r.height / 2;
+        const dy = clientY - startY + scroller.scrollTop - startScroll;
+        card.style.transform = `translateY(${dy}px) scale(1.03)`;
+
+        // Neighbour gives way once the card covers more than half of it
+        to = Math.max(0, Math.min(cards.length - 1, from + Math.round(dy / step)));
+        cards.forEach((c, i) => {
+            if (c === card) return;
+            const shift = (from < to && i > from && i <= to) ? -step
+                        : (from > to && i < from && i >= to) ? step : 0;
+            c.style.transform = shift ? `translateY(${shift}px)` : '';
         });
-        const ref = target || document.getElementById('saveBtn');
-        if (card.nextElementSibling !== ref) {
-            body.insertBefore(card, ref);
-            renumberCards();
-        }
+
+        // Numbers show the position the cards would get on drop
+        const order = cards.filter(c => c !== card);
+        order.splice(to, 0, card);
+        order.forEach((c, i) => { c.querySelector('.drag-num').textContent = i + 1; });
     };
 
     const drop = () => {
-        if (card) card.classList.remove('dragging');
+        if (!card) return;
+        const done = card;
         card = null;
+        settling = true;
+
+        // Glide into the free slot, then commit the new order to the DOM
+        done.classList.remove('dragging');
+        done.style.transform = `translateY(${(to - from) * step}px)`;
+        setTimeout(() => {
+            const order = cards.filter(c => c !== done);
+            order.splice(to, 0, done);
+            body.classList.add('no-anim');
+            order.forEach(c => { body.insertBefore(c, document.getElementById('saveBtn')); c.style.transform = ''; });
+            body.offsetHeight; // apply without transition
+            body.classList.remove('no-anim');
+            renumberCards();
+            settling = false;
+        }, 250);
     };
 
     document.querySelectorAll('.drag-handle').forEach(handle => {
@@ -255,7 +290,8 @@ function initCardDrag() {
         // the card is moved in the DOM.
         handle.addEventListener('touchstart', (e) => {
             e.preventDefault();
-            start(handle);
+            start(handle, e.touches[0].clientY);
+            byMouse = false;
         }, { passive: false });
         handle.addEventListener('touchmove', (e) => {
             e.preventDefault();
@@ -268,16 +304,17 @@ function initCardDrag() {
         handle.addEventListener('pointerdown', (e) => {
             if (e.pointerType !== 'mouse') return;
             e.preventDefault();
-            start(handle);
+            start(handle, e.clientY);
+            byMouse = true;
         });
     });
 
     // On document, not the handle: moving the card in the DOM drops pointer capture
     document.addEventListener('pointermove', (e) => {
-        if (e.pointerType === 'mouse') move(e.clientY);
+        if (e.pointerType === 'mouse' && byMouse) move(e.clientY);
     });
     document.addEventListener('pointerup', (e) => {
-        if (e.pointerType === 'mouse') drop();
+        if (e.pointerType === 'mouse' && byMouse) drop();
     });
 }
 
